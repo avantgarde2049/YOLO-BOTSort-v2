@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Player Tracking System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app-container">
+    <!-- Header Section -->
+    <header class="app-header">
+        <h1><i class="fas fa-running"></i> Sports Player Tracking System</h1>
+        <div class="controls">
+            <div class="file-upload">
+                <input type="file" id="videoUpload" accept="video/*">
+                <label for="videoUpload"><i class="fas fa-upload"></i> Select Video</label>
+            </div>
+            <button id="processBtn" class="btn-primary">
+                <i class="fas fa-play"></i> Start Tracking
+            </button>
+            <button id="stopBtn" class="btn-danger" disabled>
+                <i class="fas fa-stop"></i> Stop
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="content-area">
+        <div class="video-container">
+            <div id="loadingIndicator" class="loading-overlay">
+                <div class="spinner"></div>
+                <p>Processing Video...</p>
+                <div class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+            <img id="videoFeed" src="" alt="Player Tracking Output">
+        </div>
+
+        <!-- Stats Panel -->
+        <div class="stats-panel">
+            <div class="stats-header">
+                <h2><i class="fas fa-chart-bar"></i> Tracking Statistics</h2>
+            </div>
+            <div class="stats-content">
+                <div class="stat-item">
+                    <span class="stat-label">Players Tracked:</span>
+                    <span id="playerCount" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Processing FPS:</span>
+                    <span id="processingFPS" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Team A Players:</span>
+                    <span id="teamACount" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Team B Players:</span>
+                    <span id="teamBCount" class="stat-value">0</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>Sports Analytics Platform © 2023 | Real-time Player Tracking</p>
+    </footer>
+</div>
+
+<!-- Notification System -->
+<div id="notification" class="notification-hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // DOM Elements
+    const videoUpload = document.getElementById('videoUpload');
+    const processBtn = document.getElementById('processBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const videoFeed = document.getElementById('videoFeed');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const progressBar = document.getElementById('progressBar');
+    const notification = document.getElementById('notification');
+
+    // State management
+    let processingInterval;
+    let currentVideo = null;
+
+    // Event Listeners
+    processBtn.addEventListener('click', startProcessing);
+    stopBtn.addEventListener('click', stopProcessing);
+    videoUpload.addEventListener('change', handleFileSelect);
+
+    // Functions
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        currentVideo = file;
+        showNotification(`Selected: ${file.name}`, 'success');
+    }
+
+    async function startProcessing() {
+        if (!currentVideo) {
+            showNotification('Please select a video first', 'error');
+            return;
+        }
+
+        // UI Updates
+        processBtn.disabled = true;
+        stopBtn.disabled = false;
+        loadingIndicator.style.display = 'flex';
+        videoFeed.src = '';
+
+        const formData = new FormData();
+        formData.append('file', currentVideo);
+
+        try {
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                videoFeed.src = data.output_path;
+                startStatsUpdates();
+                showNotification('Tracking started successfully', 'success');
+            } else {
+                throw new Error(data.error || 'Processing failed');
+            }
+        } catch (error) {
+            showNotification(error.message, 'error');
+            console.error('Processing error:', error);
+        } finally {
+            loadingIndicator.style.display = 'none';
+            processBtn.disabled = false;
+        }
+    }
+
+    function stopProcessing() {
+        // Stop any ongoing processing
+        if (processingInterval) {
+            clearInterval(processingInterval);
+        }
+
+        // Reset UI
+        stopBtn.disabled = true;
+        videoFeed.src = '';
+        showNotification('Tracking stopped', 'warning');
+    }
+
+    function startStatsUpdates() {
+        // Simulate real-time updates (replace with actual API calls)
+        processingInterval = setInterval(async () => {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+
+                // Update UI with real stats
+                document.getElementById('playerCount').textContent = stats.active_players || 0;
+                document.getElementById('processingFPS').textContent = stats.fps ? stats.fps.toFixed(1) : 0;
+                document.getElementById('teamACount').textContent = stats.team_a || 0;
+                document.getElementById('teamBCount').textContent = stats.team_b || 0;
+
+                // Update progress (example - replace with actual progress)
+                if (stats.progress) {
+                    progressBar.style.width = `${stats.progress}%`;
+                }
+            } catch (error) {
+                console.error('Stats update error:', error);
+            }
+        }, 1000);
+    }
+
+    function showNotification(message, type) {
+        notification.textContent = message;
+        notification.className = `notification-${type}`;
+        notification.style.display = 'block';
+
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    }
+</script>
+</body>
+</html>
